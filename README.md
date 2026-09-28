@@ -111,3 +111,7 @@ Reproduce all results from the bundled excerpts:
 ```sh
 PYTHONPATH=. .venv/bin/python -m unittest discover -s tests
 ```
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
