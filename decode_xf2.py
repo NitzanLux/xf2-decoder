@@ -1,11 +1,12 @@
 """Decode the observed XtrodES XF2 layout; preserve ADC counts and packet timing.
 
 Usage: python decode_xf2.py "distance check"
-Dependencies: numpy matplotlib pyxdf
+Dependencies: numpy matplotlib pyxdf pyedflib
 """
 from pathlib import Path
 import argparse
 import collections
+from datetime import datetime, timezone
 import hashlib
 import json
 import struct
@@ -123,6 +124,65 @@ def write_xdf(path, streams, report):
             chunk(f, 6, struct.pack('<I', sid)+footer.encode())
 
 
+def write_edf(out, stem, streams, report):
+    """Export one EDF+ per signal stream, plus exact timing in an NPZ sidecar."""
+    import pyedflib
+
+    metadata = {}
+    timing = {}
+    for s in streams:
+        timing[s['name'] + '_timestamps'] = s['stamps']
+        if not s['rate']:
+            timing[s['name'] + '_values'] = s['values']
+            continue
+        rate = s['rate']
+        if rate <= 0 or rate != int(rate):
+            raise ValueError('EDF export currently requires an integer nominal sample rate')
+        values = s['values']
+        offset = 32768 if s['name'] == 'EXG' else 0
+        digital = values.astype(np.int32) - offset
+        if np.any(digital < -32768) or np.any(digital > 32767):
+            raise ValueError('Signal values exceed the EDF 16-bit range')
+        # Explicitly pad the last one-second record with raw zero counts.
+        padding = (-len(values)) % int(rate)
+        padded = np.pad(digital, ((0, padding), (0, 0)), constant_values=-offset)
+        target = out / (stem + '_' + s['name'] + '.edf')
+        headers = [dict(label=label, dimension='count', sample_frequency=rate,
+                        physical_min=-32768 + offset, physical_max=32767 + offset,
+                        digital_min=-32768, digital_max=32767,
+                        transducer='', prefilter='') for label in s['labels']]
+        with pyedflib.EdfWriter(str(target), len(headers),
+                               file_type=pyedflib.FILETYPE_EDFPLUS) as writer:
+            writer.setSignalHeaders(headers)
+            writer.setStartdatetime(datetime.fromtimestamp(float(s['stamps'][0]),
+                                                           timezone.utc).replace(tzinfo=None))
+            writer.writeAnnotation(0, -1, 'Uncalibrated raw counts; nominal clock')
+            if padding:
+                writer.writeAnnotation(len(values) / rate, padding / rate,
+                                       'Padding: raw zero counts')
+            writer.writeSamples([np.ascontiguousarray(padded[:, i])
+                                 for i in range(len(headers))], digital=True)
+        with pyedflib.EdfReader(str(target)) as reader:
+            for i in range(len(headers)):
+                actual = reader.readSignal(i, digital=True)
+                if not np.array_equal(actual, padded[:, i]):
+                    raise ValueError(f'EDF sample round-trip failed: {target}, channel {i}')
+                if reader.getSampleFrequency(i) != rate:
+                    raise ValueError(f'EDF sample rate round-trip failed: {target}')
+                if not np.allclose(reader.readSignal(i), padded[:, i] + offset, atol=1e-8, rtol=0):
+                    raise ValueError(f'EDF count scaling round-trip failed: {target}')
+        metadata[s['name']] = dict(file=target.name, original_samples=len(values),
+                                   padding_samples=padding, nominal_rate=rate,
+                                   digital_to_raw_offset=offset,
+                                   first_device_timestamp=float(s['stamps'][0]))
+    sidecar = out / (stem + '_edf_timing.npz')
+    np.savez_compressed(sidecar, **timing)
+    report['edf'] = dict(streams=metadata, timing_file=sidecar.name,
+                         clock='Nominal rate; exact fitted and packet timestamps in timing_file',
+                         start_time_basis='Device Unix seconds interpreted as UTC')
+    report['edf_roundtrip_verified'] = True
+
+
 def envelope(t, y, bins=2200):
     step = max(1, len(y)//bins)
     starts = np.arange(0, len(y), step)
@@ -135,6 +195,7 @@ def plot_stream(path, stem, s):
     n = len(s['labels'])
     fig, axes = plt.subplots(n, 1, figsize=(15, 1.25*n+1.6), sharex=True)
     t = s['stamps'] - s['stamps'][0]
+    axes = np.atleast_1d(axes)
     for i, ax in enumerate(axes):
         tt, low, high = envelope(t, s['values'][:, i])
         ax.fill_between(tt, low, high, color='#156b9a', alpha=.85, linewidth=.3)
@@ -149,23 +210,45 @@ def plot_stream(path, stem, s):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('folder', type=Path)
+    parser = argparse.ArgumentParser(description='Decode XF2 to XDF and/or EDF+.')
+    parser.add_argument('input', type=Path, help='An XF2 file or folder of XF2 files')
+    parser.add_argument('--format', choices=('xdf', 'edf', 'both'), default='xdf',
+                        help='Output format (default: xdf)')
+    parser.add_argument('--output-dir', type=Path, help='Override the decoded output folder')
     args = parser.parse_args()
-    out = args.folder / 'decoded'
-    out.mkdir(exist_ok=True)
+    source_path = args.input.expanduser()
+    if source_path.is_file():
+        if source_path.suffix.lower() != '.xf2':
+            parser.error('Input file must have an .xf2 extension')
+        sources = [source_path]
+        base = source_path.parent
+    elif source_path.is_dir():
+        sources = sorted(p for p in source_path.iterdir()
+                         if p.is_file() and p.suffix.lower() == '.xf2')
+        base = source_path
+    else:
+        parser.error(f'Input does not exist: {source_path}')
+    if not sources:
+        parser.error(f'No XF2 files found in {source_path}')
+    out = args.output_dir.expanduser() if args.output_dir else base / 'decoded'
+    out.mkdir(parents=True, exist_ok=True)
     reports = []
-    for source in sorted(args.folder.glob('*.xf2')):
+    for source in sources:
         streams, report = decode(source)
-        target = out / (source.stem+'.xdf')
-        write_xdf(target, streams, report)
-        loaded, _ = pyxdf.load_xdf(str(target), synchronize_clocks=False, dejitter_timestamps=False)
-        assert len(loaded) == len(streams)
-        for actual, expected in zip(loaded, streams):
-            assert np.array_equal(actual['time_series'], expected['values'])
-            assert np.array_equal(actual['time_stamps'], expected['stamps'])
-            assert np.all(np.diff(actual['time_stamps']) > 0)
-        report['xdf_roundtrip_verified'] = True
+        if not any(s['rate'] for s in streams):
+            raise ValueError(f'No sensor samples found in {source}')
+        if args.format in ('xdf', 'both'):
+            target = out / (source.stem+'.xdf')
+            write_xdf(target, streams, report)
+            loaded, _ = pyxdf.load_xdf(str(target), synchronize_clocks=False, dejitter_timestamps=False)
+            assert len(loaded) == len(streams)
+            for actual, expected in zip(loaded, streams):
+                assert np.array_equal(actual['time_series'], expected['values'])
+                assert np.array_equal(actual['time_stamps'], expected['stamps'])
+                assert np.all(np.diff(actual['time_stamps']) > 0)
+            report['xdf_roundtrip_verified'] = True
+        if args.format in ('edf', 'both'):
+            write_edf(out, source.stem, streams, report)
         for s in streams:
             if s['rate']:
                 plot_stream(out/(source.stem+'_'+s['name']+'_traces.png'), source.stem, s)
@@ -173,16 +256,16 @@ def main():
         print(json.dumps(report), flush=True)
     (out/'conversion_report.json').write_text(json.dumps(reports, indent=2))
     (out/'README.txt').write_text(
-        'Each XDF contains EXG, IMU, and two packet-timing streams. Counts are raw, unfiltered, and uncalibrated.\n'
-        'EXG stores unsigned 16-bit source values losslessly in int32. IMU uses signed big-endian int16 source values.\n'
-        'EXG nominal rate: 4000 Hz; IMU: 1000 Hz. Sample clocks fitted independently to device packet timestamps.\n'
-        'Timestamps are device Unix seconds, not synchronized LSL host time. Packet anchors assumed to indicate first sample.\n'
-        'Original packet timestamps and indices remain in the packet_timing streams. CRC algorithm was not verified.\n'
-        'All frame boundaries, payload sizes, packet continuity and complete consumption except zero padding checked.\n'
-        'Every XDF was reloaded with pyxdf and every sample and timestamp compared exactly.\n'
-        '0002 continues 0001 by packet index; 0000 is a separate recording.\n'
-        'PNG plots show min/max envelopes in raw counts with independent channel scales; no peaks discarded by simple subsampling.\n'
-        'For pyxdf, use synchronize_clocks=False, dejitter_timestamps=False to retain exported timestamps exactly.\n')
+        'Counts are raw, unfiltered, and uncalibrated. CRC algorithm was not verified.\n'
+        'Device Unix timestamps are not synchronized to LSL host time.\n'
+        'Packet anchors are assumed to indicate the first sample; sample clocks are fitted independently.\n'
+        'XDF exports retain exact sample timestamps and packet timing; samples and timestamps are verified on reload.\n'
+        'EDF+ exports use separate files for each signal stream at its nominal rate.\n'
+        'EDF EXG digital values are shifted by -32768; physical values retain unsigned raw counts.\n'
+        'EDF final records are padded with raw zeros; original lengths are in conversion_report.json.\n'
+        'EDF timing NPZ files preserve fitted timestamps and original packet timestamps and values.\n'
+        'EDF samples, count scaling, and nominal rates are verified on reload.\n'
+        'PNG plots show min/max envelopes in raw counts. Existing matching outputs are overwritten.\n')
 
 
 if __name__ == '__main__':

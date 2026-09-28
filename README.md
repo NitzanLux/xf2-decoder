@@ -1,6 +1,6 @@
-# XF2 decoder and XDF validation example
+# XF2 decoder with XDF and EDF export
 
-[`decode_xf2.py`](decode_xf2.py) is the main tool: it decodes the observed XtrodES XF2 layout into XDF, preserving raw ADC counts and original packet timing. The included LSL-versus-SD comparison provides a small, reproducible validation example.
+[`decode_xf2.py`](decode_xf2.py) is the main tool: it decodes the observed XtrodES XF2 layout into XDF or EDF+, preserving raw ADC counts and original packet timing. The included LSL-versus-SD comparison provides a small, reproducible validation example.
 
 ## Install
 
@@ -28,7 +28,20 @@ The decoder processes every `.xf2` file directly in that folder and writes into 
 
 Each exported XDF is reloaded with `pyxdf`; sample values and timestamps are checked for exact equality against the decoded arrays. The decoder checks observed frame boundaries, payload sizes, and packet continuity. It rejects missing packets rather than silently filling gaps. It supports the observed format and constant stream configuration; it is not a general specification of all XF2 variants. CRC bytes are present but their algorithm is unverified. Physical calibration is not established, and device timestamps are not synchronized to LSL host time.
 
-The decoder is copied unchanged from the supplied `decode_xf2.py`. Its generated `README.txt` contains some source-specific notes (including `0001`/`0002` continuity) that should not be treated as findings about arbitrary new inputs; consult each generated conversion report. Existing files with matching output names are overwritten. Run with normal Python, without `-O`, so its assertion checks remain enabled.
+Pass a single file instead of a folder, and select EDF or both formats:
+
+```sh
+.venv/bin/python decode_xf2.py "/path/to/recording.xf2" --format edf
+.venv/bin/python decode_xf2.py "/path/to/recordings" --format both --output-dir "/path/to/exports"
+```
+
+XDF remains the default. A single-file input writes to `decoded/` beside that file unless `--output-dir` is supplied. Folder input is nonrecursive and accepts case-insensitive `.xf2` extensions. Invalid paths and folders without XF2 files produce an error.
+
+EDF export creates `<stem>_EXG.edf` and/or `<stem>_IMU.edf`, one EDF+ file per available signal stream, so separate start times and lengths are retained. EDF uses each stream's **nominal integer sample rate**, not its fitted clock. Physical values are uncalibrated raw counts: unsigned EXG counts are stored with a digital offset of -32768 and mapped back through the EDF physical range; IMU counts remain signed. Every exported channel is reloaded to verify digital samples, physical count scaling, and sample rate.
+
+EDF requires complete records: the last one-second record is padded with raw zero counts and annotated. `conversion_report.json` records original sample counts and padding. `<stem>_edf_timing.npz` preserves exact fitted timestamps (`EXG_timestamps`, `IMU_timestamps`) and packet timing arrays (`EXG_packet_timing_timestamps`, `EXG_packet_timing_values`, and IMU equivalents). Packet value columns are packet index, first sample index, and sample count. Keep these sidecars and the report with the EDF files. EDF start dates interpret device Unix seconds as UTC; this does not imply clock synchronization. EDF export requires integer nominal rates. This tool reads XF2 input; it does not reconstruct XF2 from EDF.
+
+Existing files with matching output names are overwritten. Run with normal Python, without `-O`, so the XF2 and XDF assertion checks remain enabled.
 
 No full XF2 recordings are bundled. Supply your own folder for decoding; the validation example below runs entirely from the included cropped samples.
 
@@ -70,7 +83,7 @@ Standardization supports waveform comparison but removes absolute amplitude diff
 
 ## Files
 
-- `decode_xf2.py`: primary XF2-to-XDF decoder, round-trip checks, and trace exports.
+- `decode_xf2.py`: primary XF2-to-XDF/EDF decoder, round-trip checks, and trace exports.
 - `compare.py`: comparison processing, metrics, and plotting.
 - `data/raw_sample.npz`, `data/provenance.json`: minimal raw example and source provenance.
 - `results/aligned_all_channels_10s.png` / `.svg`: all channels with scores.
