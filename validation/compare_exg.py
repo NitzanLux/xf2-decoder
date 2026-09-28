@@ -17,8 +17,8 @@ def main():
     args = parser.parse_args()
     if not 0 < args.alpha <= 1:
         parser.error('--alpha must be in (0, 1]')
-    out = ROOT / 'results'
-    out.mkdir(exist_ok=True)
+    out = ROOT / 'results' / 'exg'
+    out.mkdir(parents=True, exist_ok=True)
     meta = json.loads((ROOT / 'data/provenance.json').read_text())
     low, high = meta['sources']
     fs = low['sample_rate_hz']

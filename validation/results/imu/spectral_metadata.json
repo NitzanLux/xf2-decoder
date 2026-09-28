@@ -8,7 +8,7 @@
   "frequency_bin_spacing_hz": 0.5,
   "detrend": "Mean removed per window",
   "psd_units": "z-score squared / Hz",
-  "source_arrays": "imu_comparison_arrays.npz",
+  "source_arrays": "comparison_arrays.npz",
   "channels": [
     "Acc X",
     "Acc Y",

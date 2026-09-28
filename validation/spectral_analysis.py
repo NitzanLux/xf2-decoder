@@ -41,8 +41,7 @@ def spectra(lsl, sd, fs):
 
 
 def analyze(kind, out):
-    prefix = 'imu_' if kind == 'imu' else ''
-    source = out / f'{prefix}comparison_arrays.npz'
+    source = out / 'comparison_arrays.npz'
     with np.load(source, allow_pickle=False) as arrays:
         t, lsl, sd = arrays['time_s'], arrays['lsl_z'], arrays['sd_z']
     dt = np.diff(t)
@@ -58,8 +57,8 @@ def analyze(kind, out):
                     preprocessing='SD anti-alias decimation; separate per-channel standardization. ' +
                     ('No high-pass filter.' if kind == 'imu' else 'Both streams have a 20 Hz high-pass filter.'),
                     interpretation='Relative spectral shape, not physical calibration. Coherence is undefined at zero-power bins and uncertain where power is small.')
-    np.savez_compressed(out/f'{kind}_spectral_arrays.npz', **values)
-    (out/f'{kind}_spectral_metadata.json').write_text(json.dumps(metadata, indent=2))
+    np.savez_compressed(out/'spectral_arrays.npz', **values)
+    (out/'spectral_metadata.json').write_text(json.dumps(metadata, indent=2))
     f = values['frequency_hz']
     positive = f > 0
     cols = 2 if kind == 'imu' else 4
@@ -95,7 +94,7 @@ def analyze(kind, out):
         fig.suptitle(f'{kind.upper()} · {title} · aligned {t[0]:g}–{t[-1]+1/fs:g} s\n'
                      f'Welch: 2 s Hann windows, 50% overlap, {metadata["averaged_segments"]} segments\n{note}', fontsize=11)
         for ext in ('png', 'svg'):
-            fig.savefig(out/f'{kind}_{measure}_10s.{ext}', dpi=150)
+            fig.savefig(out/f'{measure}_10s.{ext}', dpi=150)
         plt.close(fig)
     print(f'{kind.upper()}: saved power spectra, separate residual spectra, and coherence')
 
@@ -105,7 +104,7 @@ def main():
     parser.add_argument('--signal', choices=('exg', 'imu', 'both'), default='both')
     args = parser.parse_args()
     for kind in (('exg', 'imu') if args.signal == 'both' else (args.signal,)):
-        analyze(kind, ROOT/'results')
+        analyze(kind, ROOT/'results'/kind)
 
 
 if __name__ == '__main__':

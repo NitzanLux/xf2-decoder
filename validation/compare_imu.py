@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parent
 
 
 def main():
-    out = ROOT / 'results'
-    out.mkdir(exist_ok=True)
+    out = ROOT / 'results' / 'imu'
+    out.mkdir(parents=True, exist_ok=True)
     meta = json.loads((ROOT / 'data/imu_provenance.json').read_text())
     low, high = meta['sources']
     fs = low['sample_rate_hz']
@@ -63,7 +63,7 @@ def main():
     rows = [dict(channel=label, pearson_r=float(np.mean(az[:, c]*bz[:, c])),
                  z_score_rmse=float(np.sqrt(np.mean(residual[:, c]**2))))
             for c, label in enumerate(labels)]
-    with (out/'imu_channel_metrics.csv').open('w') as f:
+    with (out/'channel_metrics.csv').open('w') as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
@@ -86,11 +86,11 @@ def main():
         axes[-1].set_xlabel('LSL IMU sample-index time (s)')
         title = 'Residual: standardized LSL − standardized SD; common vertical scale' if errors else 'Aligned traces; each axis and source standardized independently'
         fig.suptitle(f'IMU · {start}–{stop} s · {title}\nSD anti-alias decimation only; no 20 Hz high-pass; not a physical calibration comparison')
-        stem = 'imu_residual_all_channels_10s' if errors else 'imu_aligned_all_channels_10s'
+        stem = 'residual_all_channels_10s' if errors else 'aligned_all_channels_10s'
         for ext in ('png', 'svg'):
             fig.savefig(out/f'{stem}.{ext}', dpi=150)
         plt.close(fig)
-    np.savez_compressed(out/'imu_comparison_arrays.npz', time_s=t, lsl_z=az, sd_z=bz,
+    np.savez_compressed(out/'comparison_arrays.npz', time_s=t, lsl_z=az, sd_z=bz,
                         residual_z=residual, alignment_scores=scores/active)
     summary = dict(display_lsl_seconds=[start, stop], samples_per_channel=n,
                    sample_rate_hz=fs, global_sd_minus_lsl_seconds=(high['start_sample']/ratio-low['start_sample']+lag)/fs,
@@ -98,7 +98,7 @@ def main():
                    pearson_r_min=min(r['pearson_r'] for r in rows),
                    pearson_r_max=max(r['pearson_r'] for r in rows),
                    note='Independent IMU integer-sample alignment; descriptive same-window comparison, not calibration or absolute clock synchronization.')
-    (out/'imu_summary.json').write_text(json.dumps(summary, indent=2))
+    (out/'summary.json').write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2))
 
 

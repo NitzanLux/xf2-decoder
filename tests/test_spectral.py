@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from spectral_analysis import spectra
+from validation.spectral_analysis import spectra
 
 
 class SpectralTests(unittest.TestCase):
