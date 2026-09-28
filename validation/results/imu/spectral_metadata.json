@@ -1,0 +1,26 @@
+{
+  "sample_rate_hz": 500.0,
+  "samples": 5000,
+  "window": "periodic Hann",
+  "window_samples": 1000,
+  "overlap_samples": 500,
+  "averaged_segments": 9,
+  "frequency_bin_spacing_hz": 0.5,
+  "detrend": "Mean removed per window",
+  "psd_units": "z-score squared / Hz",
+  "source_arrays": "imu_comparison_arrays.npz",
+  "channels": [
+    "Acc X",
+    "Acc Y",
+    "Acc Z",
+    "Gyro X",
+    "Gyro Y",
+    "Gyro Z"
+  ],
+  "interval_seconds": [
+    100.0,
+    110.0
+  ],
+  "preprocessing": "SD anti-alias decimation; separate per-channel standardization. No high-pass filter.",
+  "interpretation": "Relative spectral shape, not physical calibration. Coherence is undefined at zero-power bins and uncertain where power is small."
+}

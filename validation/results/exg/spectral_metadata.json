@@ -1,0 +1,36 @@
+{
+  "sample_rate_hz": 500.0,
+  "samples": 5000,
+  "window": "periodic Hann",
+  "window_samples": 1000,
+  "overlap_samples": 500,
+  "averaged_segments": 9,
+  "frequency_bin_spacing_hz": 0.5,
+  "detrend": "Mean removed per window",
+  "psd_units": "z-score squared / Hz",
+  "source_arrays": "comparison_arrays.npz",
+  "channels": [
+    "LSL Ch0 / SD Ch 01",
+    "LSL Ch1 / SD Ch 02",
+    "LSL Ch2 / SD Ch 03",
+    "LSL Ch3 / SD Ch 04",
+    "LSL Ch4 / SD Ch 05",
+    "LSL Ch5 / SD Ch 06",
+    "LSL Ch6 / SD Ch 07",
+    "LSL Ch7 / SD Ch 08",
+    "LSL Ch8 / SD Ch 09",
+    "LSL Ch9 / SD Ch 10",
+    "LSL Ch10 / SD Ch 11",
+    "LSL Ch11 / SD Ch 12",
+    "LSL Ch12 / SD Ch 13",
+    "LSL Ch13 / SD Ch 14",
+    "LSL Ch14 / SD Ch 15",
+    "LSL Ch15 / SD Ch 16"
+  ],
+  "interval_seconds": [
+    100.0,
+    110.0
+  ],
+  "preprocessing": "SD anti-alias decimation; separate per-channel standardization. Both streams have a 20 Hz high-pass filter.",
+  "interpretation": "Relative spectral shape, not physical calibration. Coherence is undefined at zero-power bins and uncertain where power is small."
+}

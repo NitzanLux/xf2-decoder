@@ -1,0 +1,13 @@
+{
+  "display_lsl_seconds": [
+    100,
+    110
+  ],
+  "samples_per_channel": 5000,
+  "sample_rate_hz": 500,
+  "global_sd_minus_lsl_seconds": 55.102,
+  "alignment_peak_mean_correlation": 0.999631136761561,
+  "pearson_r_min": 0.9993005419331783,
+  "pearson_r_max": 0.9998953704883669,
+  "note": "Independent IMU integer-sample alignment; descriptive same-window comparison, not calibration or absolute clock synchronization."
+}

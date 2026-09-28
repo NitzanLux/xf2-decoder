@@ -62,6 +62,8 @@ def main():
     offset = high['start_sample']/ratio - low['start_sample'] + lag
     summary = dict(display_lsl_seconds=[start_s, end_s],samples_per_channel=n, sample_rate_hz=fs, global_sd_minus_lsl_samples=offset, global_sd_minus_lsl_seconds=offset/fs, pearson_r_min=min(r['pearson_r'] for r in rows), pearson_r_max=max(r['pearson_r'] for r in rows), sd_alpha=args.alpha)
     (out/'summary.json').write_text(json.dumps(summary, indent=2))
+    residual = az - bz
+    residual_limit = max(0.1, float(np.max(np.abs(residual))) * 1.05)
     fig, axes = plt.subplots(16, 1, figsize=(20, 38), sharex=True, layout='constrained')
     for c, ax in enumerate(axes):
         ax.plot(t, az[:, c], color='#1769aa', lw=1.1, alpha=.95, label='LSL')
@@ -77,17 +79,37 @@ def main():
     for ext in ['png','svg']:
         fig.savefig(out/f'aligned_all_channels_10s.{ext}', dpi=170)
     plt.close(fig)
+    fig, axes = plt.subplots(16, 1, figsize=(20, 38), sharex=True, sharey=True,
+                             layout='constrained')
+    for c, ax in enumerate(axes):
+        ax.axhline(0, color='#555555', lw=.8)
+        ax.plot(t, residual[:, c], color='#7b3294', lw=.8)
+        ax.set_title(f"LSL Ch{c} − SD Ch {c+1:02d}     |     RMSE (z-score) = {rows[c]['z_score_rmse']:.3f}",
+                     loc='left', fontsize=14, pad=6)
+        ax.set_ylabel('Residual\n(z-score)', fontsize=12, labelpad=12)
+        ax.set_ylim(-residual_limit, residual_limit)
+        ax.set_xlim(start_s, end_s)
+        ax.tick_params(labelsize=11)
+        ax.grid(alpha=.18)
+    axes[-1].set_xlabel('LSL sample-index time (s)', fontsize=15)
+    fig.suptitle('Residual error · aligned 100–110 s · 20 Hz high-pass\n'
+                 'Standardized LSL − standardized SD; zero indicates agreement\n'
+                 'Common vertical scale across channels; units are z-scores, not µV or ADC counts',
+                 fontsize=20)
+    for ext in ['png', 'svg']:
+        fig.savefig(out/f'residual_all_channels_10s.{ext}', dpi=170)
+    plt.close(fig)
     lags = signal.correlation_lags(n,n)/fs
     corr = np.column_stack([signal.correlate(bz[:, c],az[:, c],method='fft')/n for c in range(16)])
     conv = np.column_stack([signal.fftconvolve(az[:, c],bz[:, c])/n for c in range(16)])
-    np.savez_compressed(out/'comparison_arrays.npz',time_s=t,lsl_z=az,sd_z=bz,crosscorrelation=corr,lag_s=lags,convolution=conv,convolution_time_s=np.arange(2*n-1)/fs)
+    np.savez_compressed(out/'comparison_arrays.npz',time_s=t,lsl_z=az,sd_z=bz,crosscorrelation=corr,lag_s=lags,residual_z=residual,convolution=conv,convolution_time_s=np.arange(2*n-1)/fs)
     fig, axes = plt.subplots(4,4,figsize=(16,12),layout='constrained')
     for c,ax in enumerate(axes.flat):
-        ax.plot(lags,corr[:,c],label='Cross-correlation')
-        ax.plot(lags,conv[:,c],alpha=.5,label='Convolution')
-        ax.set(title=f'Ch{c}',xlabel='Lag / centered convolution time (s)',xlim=(-.1,.1))
+        ax.plot(lags,corr[:,c],label='Time-shift similarity (cross-correlation)')
+        ax.plot(lags,conv[:,c],alpha=.5,label='Time-reversed overlap (convolution)')
+        ax.set(title=f'Ch{c}',xlabel='Shift / centered reversed-overlap time (s)',xlim=(-.1,.1))
     axes.flat[0].legend(fontsize=8)
-    fig.suptitle('10-second sample · standardized signals · sums divided by N')
+    fig.suptitle('10-second sample · standardized signals · sums divided by N\nTime-reversed overlap compares one signal with the other reversed; it is not an alignment score')
     fig.savefig(out/'convolution_crosscorrelation.png',dpi=150)
     plt.close(fig)
     print(json.dumps(summary,indent=2))
