@@ -1,4 +1,38 @@
-# XDF channel comparison — standalone example
+# XF2 decoder and XDF validation example
+
+[`decode_xf2.py`](decode_xf2.py) is the main tool: it decodes the observed XtrodES XF2 layout into XDF, preserving raw ADC counts and original packet timing. The included LSL-versus-SD comparison provides a small, reproducible validation example.
+
+## Install
+
+Python 3.9 or later:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+## Decode XF2 recordings
+
+Pass a folder containing `.xf2` files:
+
+```sh
+.venv/bin/python decode_xf2.py "/path/to/recordings"
+```
+
+The decoder processes every `.xf2` file directly in that folder and writes into its `decoded/` subfolder:
+
+- One `.xdf` per source file, containing available EXG/IMU signals and corresponding packet-timing streams.
+- Per-stream PNG trace plots in raw counts.
+- `conversion_report.json` with source hashes, packet continuity, clock-fit statistics, and XDF round-trip verification.
+- `README.txt` describing the export.
+
+Each exported XDF is reloaded with `pyxdf`; sample values and timestamps are checked for exact equality against the decoded arrays. The decoder checks observed frame boundaries, payload sizes, and packet continuity. It rejects missing packets rather than silently filling gaps. It supports the observed format and constant stream configuration; it is not a general specification of all XF2 variants. CRC bytes are present but their algorithm is unverified. Physical calibration is not established, and device timestamps are not synchronized to LSL host time.
+
+The decoder is copied unchanged from the supplied `decode_xf2.py`. Its generated `README.txt` contains some source-specific notes (including `0001`/`0002` continuity) that should not be treated as findings about arbitrary new inputs; consult each generated conversion report. Existing files with matching output names are overwritten. Run with normal Python, without `-O`, so its assertion checks remain enabled.
+
+No full XF2 recordings are bundled. Supply your own folder for decoding; the validation example below runs entirely from the included cropped samples.
+
+## LSL-versus-decoded-SD validation example
 
 A reproducible comparison of 16 LSL channels and their corresponding SD channels over **LSL sample-index time 100–110 seconds**. Includes small original-value recording excerpts, analysis code, per-channel metrics, and generated figures. No full recordings or external data paths are required.
 
@@ -6,13 +40,11 @@ A reproducible comparison of 16 LSL channels and their corresponding SD channels
 
 Open [the SVG](results/aligned_all_channels_10s.svg) for lossless zoom, or [the CSV](results/channel_metrics.csv) for quantitative results. Each channel title reports Pearson r and standardized RMSE for the actual displayed 10 seconds.
 
-## Run
+## Run the comparison
 
-Python 3.9 or later:
+After installing the dependencies:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
 .venv/bin/python compare.py
 ```
 
@@ -38,7 +70,8 @@ Standardization supports waveform comparison but removes absolute amplitude diff
 
 ## Files
 
-- `compare.py`: all processing, metrics, and plotting.
+- `decode_xf2.py`: primary XF2-to-XDF decoder, round-trip checks, and trace exports.
+- `compare.py`: comparison processing, metrics, and plotting.
 - `data/raw_sample.npz`, `data/provenance.json`: minimal raw example and source provenance.
 - `results/aligned_all_channels_10s.png` / `.svg`: all channels with scores.
 - `results/channel_metrics.csv`, `results/summary.json`: numerical results and alignment.
