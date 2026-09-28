@@ -1,0 +1,30 @@
+{
+  "sources": [
+    {
+      "key": "lsl",
+      "source_file": "sub-test_ses-sdTest_task-Default_run-001_eeg.xdf",
+      "source_sha256": "417348238dee99e48dda226b5337769e05d97579f754456fe47e0bfdfb661fc2",
+      "stream": "XtrodesEMG",
+      "sample_rate_hz": 500.0,
+      "start_sample": 48000,
+      "stop_sample": 57000,
+      "unit": "uV"
+    },
+    {
+      "key": "sd",
+      "source_file": "0000.xdf",
+      "source_sha256": "5805c8ae5b7d93ad3a884ee6ced73455a96d27ee745f0512092a01606e836884",
+      "stream": "EXG",
+      "sample_rate_hz": 4000.0,
+      "start_sample": 600000,
+      "stop_sample": 680000,
+      "unit": "count"
+    }
+  ],
+  "display_lsl_seconds": [
+    100,
+    110
+  ],
+  "time_basis": "Sample index / nominal sample rate; not absolute XDF clock time.",
+  "notes": "Original values, cropped with filter and alignment context; no full recordings included."
+}

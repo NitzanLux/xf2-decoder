@@ -1,0 +1,13 @@
+{
+  "display_lsl_seconds": [
+    100,
+    110
+  ],
+  "samples_per_channel": 5000,
+  "sample_rate_hz": 500.0,
+  "global_sd_minus_lsl_samples": 27568.0,
+  "global_sd_minus_lsl_seconds": 55.136,
+  "pearson_r_min": 0.8746237581575841,
+  "pearson_r_max": 0.9810135429596039,
+  "sd_alpha": 0.45
+}
