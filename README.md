@@ -15,7 +15,19 @@
 
 ## Install
 
-Python 3.9 or later:
+Python 3.9 or later. Install the library from PyPI:
+
+```sh
+pip install xf2-decoder
+```
+
+This provides the importable `decode_xf2` module and an `xf2-decoder` command, equivalent to `python decode_xf2.py`:
+
+```sh
+xf2-decoder "/path/to/recordings" --format both
+```
+
+To work from a clone of this repository (examples, tests, and validation), install the pinned dependencies instead:
 
 ```sh
 python3 -m venv .venv

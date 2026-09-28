@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 .mplconfig/
 examples/output/
+build/
+dist/
+*.egg-info/

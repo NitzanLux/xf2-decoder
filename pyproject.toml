@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xf2-decoder"
+version = "1.0.0"
+description = "Decode XtrodES XF2 recordings to XDF or EDF+, preserving raw ADC counts and packet timing."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "NitzanLux" }]
+keywords = ["xf2", "xtrodes", "eeg", "exg", "imu", "xdf", "edf"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "numpy>=1.22",
+    "matplotlib>=3.5",
+    "pyxdf>=1.16",
+    "pyedflib>=0.1.30",
+]
+
+[project.scripts]
+xf2-decoder = "decode_xf2:main"
+
+[project.urls]
+Homepage = "https://github.com/NitzanLux/xf2-decoder"
+
+[tool.setuptools]
+py-modules = ["decode_xf2"]
